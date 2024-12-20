@@ -1,4 +1,4 @@
-from django.http import JsonResponse, HttpResponse
+from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 import base64
 import cv2
@@ -7,52 +7,38 @@ import json
 from imageProcessing.objectDetection import objectDetection
 from imageProcessing import imageTransformation as imgt
 
-def base64_to_image(base64_str):
-    img_data = base64.b64decode(base64_str)
-    np_arr = np.frombuffer(img_data, np.uint8)
-    img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-    return img
-
-def image_to_base64(img):
-    _, buffer = cv2.imencode('.PNG', img)
-    base64_str = base64.b64encode(buffer).decode('utf-8')
-    return base64_str
-
 @csrf_exempt
 def imageProcess(request):
     if request.method == "POST":
         try:
-            data = json.loads(request.body)
-            base64String = data['image']
-            choice = int(data['choice'])
-            dimensions = data['dim']
+            image = request.FILES.get("image")
+            choice = int(request.POST["choice"])
+            dim = json.loads(request.POST["dim"])
             
-            if base64String:
-                img = base64_to_image(base64String)
-                if choice == 1:
-                    processed_img = imgt.face_detect(img)
-                elif choice == 2:
-                    processed_img = imgt.grayscale(img)
-                elif choice == 3:
-                    processed_img = imgt.resize(img,dimensions)
-                elif choice == 4:
-                    processed_img = imgt.apply_pencil_sketch(img)
-                elif choice == 5:
-                    processed_img = imgt.apply_cartoon_filter(img)
-                elif choice == 6:
-                    processed_img = imgt.apply_sepia(img)
-                elif choice == 7:
-                    processed_img = imgt.reduce_noise(img)
-                elif choice == 8:
-                    processed_img = objectDetection(img)
-
-
-                processed_base64 = image_to_base64(processed_img)
-                
-                return JsonResponse(
-                    {'message':'OK',
-                        'output':processed_base64,
-                        }, status=200)
+            file_bytes = np.frombuffer(image.read(), np.uint8)
+            input_image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+            
+            if choice == 1:
+                output_img = imgt.face_detect(input_image)
+            elif choice == 2:
+                output_img = imgt.grayscale(input_image)
+            elif choice == 3:
+                output_img = imgt.resize(input_image, dim)
+            elif choice == 4:
+                output_img = imgt.apply_pencil_sketch(input_image)
+            elif choice == 5:
+                output_img = imgt.apply_cartoon_filter(input_image)
+            elif choice == 6:
+                output_img = imgt.apply_sepia(input_image)
+            elif choice == 7:
+                output_img = imgt.reduce_noise(input_image)
+            elif choice == 8:
+                output_img = objectDetection(input_image)
+            
+            success, encoded_image = cv2.imencode('.jpg', output_img)
+            image_bytes = encoded_image.tobytes()
+            return HttpResponse(image_bytes, content_type='image/jpeg', status=200)
+        
         except:
-            return JsonResponse({'message':'Invalid Image Parameters / File Size Limit Exceeded !!'}, status=400)
-    return HttpResponse("Server Status : ACTIVE")
+            return HttpResponse("Invalid Request", status=400)
+    return HttpResponse("Server Status : Online", status = 200)

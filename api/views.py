@@ -1,11 +1,13 @@
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
-import base64
 import cv2
 import numpy as np
 import json
 from imageProcessing.objectDetection import objectDetection
 from imageProcessing import imageTransformation as imgt
+
+class Variables:
+    numberOfOperations = 0
 
 @csrf_exempt
 def imageProcess(request):
@@ -37,8 +39,11 @@ def imageProcess(request):
             
             success, encoded_image = cv2.imencode('.jpg', output_img)
             image_bytes = encoded_image.tobytes()
+
+            Variables.numberOfOperations += 1
+
             return HttpResponse(image_bytes, content_type='image/jpeg', status=200)
         
         except:
             return HttpResponse("Invalid Request", status=400)
-    return HttpResponse("Server Status : Online", status = 200)
+    return HttpResponse(f"Server Status : Online <br/> No. of Images Processed : {Variables.numberOfOperations}", status = 200)
